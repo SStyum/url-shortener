@@ -1,4 +1,6 @@
 import { useAuth } from '../context/AuthContext';
+import { CreateLinkForm } from '../components/CreateLinkForm';
+import { LinkList } from '../components/LinkList';
 
 export function DashboardPage() {
   const { user, logout } = useAuth();
@@ -21,13 +23,9 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-6 py-10">
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center">
-          <h2 className="text-base font-medium text-slate-700">Bem-vindo</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Gerenciamento de links e gráficos chegam na Fase 6.
-          </p>
-        </div>
+      <main className="mx-auto max-w-4xl space-y-6 px-6 py-10">
+        <CreateLinkForm />
+        <LinkList />
       </main>
     </div>
   );

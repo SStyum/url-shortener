@@ -80,10 +80,11 @@ Senhas são armazenadas como hash **bcrypt** (10 rounds) na entidade `User`.
 
 App React (Vite) em `apps/web/` consumindo a API.
 
-- **Stack**: React 18 + React Router v7 + Axios + Tailwind v4
+- **Stack**: React 18 + React Router v7 + Axios + TanStack Query v5 + Tailwind v4 + Recharts
 - **Rotas**:
   - `/login` e `/register` — públicas; redirecionam pra `/` se já autenticado
-  - `/` — Dashboard protegido (placeholder por enquanto, Fase 6 incha)
+  - `/` — Dashboard com formulário de criação e listagem de links
+  - `/links/:id` — Detalhe do link com métricas + gráfico de barras dos últimos 7 dias
 - **AuthContext**: guarda o `accessToken` **em memória** (não em localStorage,
   defesa contra XSS). O refresh token vive em cookie httpOnly e o navegador o
   envia automaticamente nas chamadas a `/auth`.
@@ -97,11 +98,24 @@ App React (Vite) em `apps/web/` consumindo a API.
   se o cookie ainda for válido, o usuário já entra logado.
 
 ```
-URL          Comportamento
-/login   →   PublicOnly (redireciona pra / se autenticado)
-/register →  PublicOnly
-/        →   ProtectedRoute (redireciona pra /login se não autenticado)
+URL              Comportamento
+/login       →   PublicOnly (redireciona pra / se autenticado)
+/register    →   PublicOnly
+/            →   ProtectedRoute → Dashboard (form + listagem)
+/links/:id   →   ProtectedRoute → Detalhe + gráfico Recharts
 ```
+
+### Dashboard
+
+- **Encurtar URL**: formulário no topo dispara `POST /links` via mutation do
+  TanStack Query; ao sucesso, invalida o cache da listagem para o link novo
+  aparecer instantaneamente
+- **Listagem**: tabela com URL original (truncada), link curto clicável, botão
+  **Copiar** (`navigator.clipboard`, feedback visual "Copiado!"), contador de
+  cliques e link **Detalhes →**
+- **Detalhe** (`/links/:id`): mostra URL original, link curto, total de cliques,
+  data de criação e um `BarChart` (Recharts) com a série diária dos últimos
+  7 dias retornada por `GET /links/:id/stats`
 
 ## Segurança
 
