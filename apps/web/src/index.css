@@ -1,11 +1,7 @@
-:root {
-  color-scheme: light dark;
-}
+@import 'tailwindcss';
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
+html,
+body,
+#root {
+  height: 100%;
 }

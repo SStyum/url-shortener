@@ -76,6 +76,48 @@ register/login  ─►  { accessToken } + Set-Cookie: refreshToken=...
 
 Senhas são armazenadas como hash **bcrypt** (10 rounds) na entidade `User`.
 
+## Frontend
+
+App React (Vite) em `apps/web/` consumindo a API.
+
+- **Stack**: React 18 + React Router v7 + Axios + Tailwind v4
+- **Rotas**:
+  - `/login` e `/register` — públicas; redirecionam pra `/` se já autenticado
+  - `/` — Dashboard protegido (placeholder por enquanto, Fase 6 incha)
+- **AuthContext**: guarda o `accessToken` **em memória** (não em localStorage,
+  defesa contra XSS). O refresh token vive em cookie httpOnly e o navegador o
+  envia automaticamente nas chamadas a `/auth`.
+- **Axios interceptor**:
+  - Request: injeta `Authorization: Bearer <accessToken>` em toda chamada
+  - Response: ao receber 401 numa rota protegida, dispara `POST /auth/refresh`
+    (com de-duplicação — refreshes paralelos compartilham a mesma promise),
+    atualiza o token e retenta a requisição original. Se o refresh falhar,
+    desloga e cai pra `/login`.
+- **Bootstrap**: ao montar, o `AuthProvider` tenta `POST /auth/refresh` —
+  se o cookie ainda for válido, o usuário já entra logado.
+
+```
+URL          Comportamento
+/login   →   PublicOnly (redireciona pra / se autenticado)
+/register →  PublicOnly
+/        →   ProtectedRoute (redireciona pra /login se não autenticado)
+```
+
+## Segurança
+
+| Vetor | Defesa |
+| ----- | ------ |
+| Senha em trânsito | **TLS (HTTPS)** em produção — o body fica criptografado pelo TLS antes de sair do navegador. Em DevTools você vê o payload *antes* de o navegador criptografar, mas na rede ninguém consegue lê-lo. |
+| Senha em repouso | **bcrypt** com 10 rounds e salt único por usuário, armazenado em `User.passwordHash`. O servidor nunca persiste a senha em texto plano. |
+| Roubo do access token via XSS | Access token vive **só em memória** do React (nada de `localStorage` ou `sessionStorage`). |
+| Roubo do refresh token via XSS | Refresh token vive em **cookie `httpOnly`** — JavaScript da página nem enxerga, só o navegador envia automaticamente para `/auth/refresh` e `/auth/logout`. |
+| CSRF no refresh | Cookie com `SameSite=Lax`, `Path=/auth` e `Secure` em produção. |
+| Força bruta / abuso | Rate limit global (60 req/min/IP) + limite estrito em `POST /links` (10/min/IP) via `@nestjs/throttler`. |
+| Validação de entrada | `ValidationPipe` global com `whitelist` + `forbidNonWhitelisted` + DTOs com `class-validator`. |
+| Privacidade dos cliques | IPs nunca são armazenados em texto plano — apenas o `SHA-256(ip)` em `clicks.ip_hash`. |
+
+> **Por que não hashear a senha no cliente?** Se o hash do cliente fosse o que o servidor compara, ele *viraria* a senha — quem roubasse o hash do banco poderia se autenticar enviando-o diretamente. O bcrypt do servidor precisa do plaintext para recomputar com o salt armazenado. TLS resolve o problema do trânsito; bcrypt resolve o do repouso.
+
 ## Rate Limiting
 
 Throttling é aplicado globalmente via `@nestjs/throttler` (`ThrottlerGuard`):
