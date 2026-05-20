@@ -24,7 +24,8 @@ Encurtador de URLs com autenticação JWT e métricas de cliques.
 | POST   | `/auth/logout`   | cookie  | Limpa o cookie de refresh                                   |
 | POST   | `/links`         | Bearer  | Cria um link com `shortCode` aleatório de 8 caracteres      |
 | GET    | `/links`         | Bearer  | Lista todos os links (mais recentes primeiro)               |
-| GET    | `/:code`         | pública | Redireciona (302) para `originalUrl` e incrementa `clicks`  |
+| GET    | `/links/:id/stats` | Bearer | Cliques por dia nos últimos 7 dias para o link              |
+| GET    | `/:code`         | pública | Redireciona (302), registra `Click` (IP hashed) e incrementa contador |
 
 ### Exemplo
 
@@ -74,3 +75,37 @@ register/login  ─►  { accessToken } + Set-Cookie: refreshToken=...
 ```
 
 Senhas são armazenadas como hash **bcrypt** (10 rounds) na entidade `User`.
+
+## Rate Limiting
+
+Throttling é aplicado globalmente via `@nestjs/throttler` (`ThrottlerGuard`):
+
+- **Default**: 60 requisições / minuto por IP em qualquer rota
+- **`POST /links`**: limite mais apertado de **10 requisições / minuto** por IP
+  (decorator `@Throttle` na rota)
+
+Acima do limite a API responde **HTTP 429** com `{"statusCode":429,"message":"ThrottlerException: Too Many Requests"}`.
+
+## Métricas
+
+Cada redirecionamento em `GET /:code` grava uma linha em `clicks` com o `link_id`
+e um hash SHA-256 do IP do cliente (sem armazenar o IP em texto plano).
+
+`GET /links/:id/stats` retorna uma série diária de 7 dias (dias sem cliques são
+preenchidos com zero) e o total agregado da janela:
+
+```json
+{
+  "linkId": "6556e656-1ea1-4c27-8ae8-6fa158c75a9a",
+  "days": [
+    { "date": "2026-05-14", "clicks": 0 },
+    { "date": "2026-05-15", "clicks": 0 },
+    { "date": "2026-05-16", "clicks": 0 },
+    { "date": "2026-05-17", "clicks": 0 },
+    { "date": "2026-05-18", "clicks": 0 },
+    { "date": "2026-05-19", "clicks": 0 },
+    { "date": "2026-05-20", "clicks": 3 }
+  ],
+  "total": 3
+}
+```

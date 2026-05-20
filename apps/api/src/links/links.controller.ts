@@ -1,5 +1,16 @@
-import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  NotFoundException,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Throttle } from '@nestjs/throttler';
 import { LinksService } from './links.service';
 import { CreateLinkDto } from './dto/create-link.dto';
 import { Link } from './entities/link.entity';
@@ -15,6 +26,7 @@ export class LinksController {
 
   @Post()
   @HttpCode(201)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async create(@Body() dto: CreateLinkDto) {
     const link = await this.linksService.create(dto);
     return this.toResponse(link);
@@ -24,6 +36,13 @@ export class LinksController {
   async findAll() {
     const links = await this.linksService.findAll();
     return links.map((link) => this.toResponse(link));
+  }
+
+  @Get(':id/stats')
+  async stats(@Param('id', new ParseUUIDPipe()) id: string) {
+    const link = await this.linksService.findById(id);
+    if (!link) throw new NotFoundException(`No link found with id "${id}"`);
+    return this.linksService.getStats(id);
   }
 
   private toResponse(link: Link) {
