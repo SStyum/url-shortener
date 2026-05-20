@@ -1,5 +1,14 @@
 # URL Shortener
 
+[![Live Demo](https://img.shields.io/badge/live%20demo-vercel-000000?logo=vercel&logoColor=white)](https://url-shortener-web-six.vercel.app)
+![Node](https://img.shields.io/badge/node-22.x-339933?logo=node.js&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-10-E0234E?logo=nestjs&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Tailwind](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
+> **Demo viva (apenas frontend)**: <https://url-shortener-web-six.vercel.app> — a UI está no ar na Vercel, mas a API ainda não foi deployada, então qualquer ação que dependa do backend (registrar, logar, criar link) vai falhar. O Dockerfile e o guia para subir a API (Render + Neon) estão na seção [Deploy](#deploy).
+
 Encurtador de URLs com autenticação JWT e métricas de cliques.
 
 ## Stack
@@ -7,12 +16,18 @@ Encurtador de URLs com autenticação JWT e métricas de cliques.
 - API: NestJS + TypeORM + PostgreSQL
 - Web: React + TanStack Query + Tailwind
 
-## Como rodar
+## Como rodar (desenvolvimento)
 
 1. `cp .env.example .env`
-2. `docker compose up -d`
-3. `cd apps/api && pnpm dev`
-4. `cd apps/web && pnpm dev`
+2. `docker compose up -d` — sobe o Postgres
+3. `cd apps/api && pnpm dev` — API em `http://localhost:3000`
+4. `cd apps/web && pnpm dev` — Web em `http://localhost:5173`
+
+## Como rodar (stack completa via Docker)
+
+`docker compose -f docker-compose.prod.yml up -d --build`
+
+Sobe Postgres + API + Web (atrás de nginx). Web disponível em `http://localhost:8080`, API em `http://localhost:3000`.
 
 ## Endpoints
 
@@ -131,6 +146,62 @@ URL              Comportamento
 | Privacidade dos cliques | IPs nunca são armazenados em texto plano — apenas o `SHA-256(ip)` em `clicks.ip_hash`. |
 
 > **Por que não hashear a senha no cliente?** Se o hash do cliente fosse o que o servidor compara, ele *viraria* a senha — quem roubasse o hash do banco poderia se autenticar enviando-o diretamente. O bcrypt do servidor precisa do plaintext para recomputar com o salt armazenado. TLS resolve o problema do trânsito; bcrypt resolve o do repouso.
+
+## Testes
+
+### API — testes e2e (Jest + Supertest)
+
+`cd apps/api && pnpm test:e2e`
+
+Os testes precisam do Postgres rodando (`docker compose up -d`). Um banco
+separado `urlshort_test` é criado automaticamente e as tabelas são truncadas
+entre cada caso.
+
+Cobertura: auth (register/login/refresh/logout), CRUD de links, redirect
+público com incremento e gravação de `Click`, agregação de stats em 7 dias,
+validação (UUID inválido → 400, código inexistente → 404, URL inválida → 400)
+e autorização (sem token → 401).
+
+### Web — testes unitários (Vitest + React Testing Library)
+
+`cd apps/web && pnpm test`
+
+Componentes testados: `CopyButton` (clipboard + feedback visual), `LinkList`
+(loading/erro/vazio/dados), `CreateLinkForm` (submit, limpar input, estado
+de loading). Vitest reusa o pipeline do Vite (ESM nativo + suporte a
+`import.meta.env`).
+
+## Deploy
+
+O repositório está pronto para deploy. Os Dockerfiles existem para `api` e
+`web` (nginx). Algumas opções:
+
+### Web na Vercel (gratuito)
+
+Atualmente publicado em <https://url-shortener-web-six.vercel.app>.
+
+1. Importe o repositório em [vercel.com/new](https://vercel.com/new)
+2. Root Directory: `apps/web` (a Vercel auto-detecta o `pnpm-workspace.yaml`)
+3. Framework Preset: `Vite` · Build command e Output Directory são auto-preenchidos
+4. Environment Variable: `VITE_API_URL=https://sua-api.exemplo.com`
+5. O [`apps/web/vercel.json`](apps/web/vercel.json) cuida do fallback SPA para React Router
+
+### API — Railway / Render / Fly.io
+
+Use o `apps/api/Dockerfile`. Variáveis obrigatórias em produção:
+
+```
+DATABASE_URL=postgres://user:pass@host:5432/db
+JWT_ACCESS_SECRET=<string aleatória forte>
+JWT_REFRESH_SECRET=<string aleatória forte>
+PUBLIC_BASE_URL=https://seu-domínio.com
+NODE_ENV=production
+```
+
+- **Railway**: $5/mês mínimo; aceita o Dockerfile direto, Postgres como add-on
+- **Render**: free tier (sleep após 15min ocioso); Postgres free 90 dias
+- **Fly.io**: free allowance generosa; Postgres via `fly pg create`
+- **Neon**: Postgres gerenciado free; pareie com qualquer host de API
 
 ## Rate Limiting
 
