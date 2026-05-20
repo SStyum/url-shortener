@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { LinksModule } from './links/links.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { LinksModule } from './links/links.module';
         synchronize: config.get<string>('NODE_ENV') !== 'production',
       }),
     }),
+    UsersModule,
+    AuthModule,
     LinksModule,
   ],
   controllers: [AppController],

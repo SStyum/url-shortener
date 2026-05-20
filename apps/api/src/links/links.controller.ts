@@ -1,10 +1,12 @@
-import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LinksService } from './links.service';
 import { CreateLinkDto } from './dto/create-link.dto';
 import { Link } from './entities/link.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('links')
+@UseGuards(JwtAuthGuard)
 export class LinksController {
   constructor(
     private readonly linksService: LinksService,
